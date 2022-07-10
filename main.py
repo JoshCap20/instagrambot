@@ -62,7 +62,7 @@ def image_loop():
         driver.get(href)
         sleep(4)
         print(driver.current_url)
-        if i % 20:
+        if i % 20 == 0:
             sleep(12.5*i)
             print(f'RESTING FOR {(12.5*i)/60} MINS')
         sleep(3)
