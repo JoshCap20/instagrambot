@@ -1,4 +1,3 @@
-import sys
 from time import sleep
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -7,32 +6,33 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import ActionChains
-from settings import _username, _password, TAG, OTHER_TAGS
+from settings import _username, _password, TAG, COMMENTS
+from random import randint
 
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-# 10 seconds is timeout for driver to wait
-wait = WebDriverWait(driver, 10)
 
 class InstagramBot:
     tags: list[str] = []
-
+    hrefs: list[str] = []
+    
     def __init__(self, tag=TAG):
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+        self.wait = WebDriverWait(self.driver, 10)
         if self.instagram_authentication():
             self.search(tag)
             self.image_loop()
-            driver.quit()
+            self.driver.quit()
 
 
     def instagram_authentication(self):
         try:
-            driver.get("https://instagram.com")
-            wait.until(EC.presence_of_element_located((By.NAME, 'username'))).send_keys(_username)
+            self.driver.get("https://instagram.com")
+            self.wait.until(EC.presence_of_element_located((By.NAME, 'username'))).send_keys(_username)
             sleep(1)
-            wait.until(EC.presence_of_element_located((By.NAME, 'password'))).send_keys(_password)
+            self.wait.until(EC.presence_of_element_located((By.NAME, 'password'))).send_keys(_password)
             sleep(1)
-            wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="loginForm"]/div/div[3]/button/div'))).click()
+            self.wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="loginForm"]/div/div[3]/button/div'))).click()
             print(f"{_username} authenticated successfully")
-            sleep(10)
+            sleep(7)
             return True
         except:
             print("Authentication error")
@@ -40,34 +40,31 @@ class InstagramBot:
         
 
     def search(self, tag):
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, 'input'))).send_keys(f'#{tag}')
+        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'input'))).send_keys(f'#{tag}')
         sleep(5)
-        searchresults = wait.until(EC.presence_of_all_elements_located((By.TAG_NAME, 'a')))
+        searchresults = self.wait.until(EC.presence_of_all_elements_located((By.TAG_NAME, 'a')))
         sleep(5)
         for searchresult in searchresults:
             self.tags.append(searchresult.get_attribute('href'))
         self.tags = [tag for tag in self.tags if 'https://www.instagram.com/explore/tags/' in tag]
-        driver.get(self.tags[0])
+        self.driver.get(self.tags[0])
+        sleep(3)
 
 
     def image_loop(self):
         sleep(5)
-        images = driver.find_elements(By.TAG_NAME, 'a')
-        hrefs = []
-        q = 0
-        i = 0
+        images = self.wait.until(EC.presence_of_all_elements_located((By.TAG_NAME, 'a')))
         for image in images:
-            hrefs.append(image.get_attribute('href'))
-        hrefs = [href for href in hrefs if 'https://www.instagram.com/p/' in href]
-        print(hrefs)
-        for href in hrefs:
-            driver.get(href)
-            sleep(4)
-            print(driver.current_url)
+            self.hrefs.append(image.get_attribute('href'))
+        self.hrefs = [href for href in self.hrefs if 'https://www.instagram.com/p/' in href]
+        i: int = 0
+        for href in self.hrefs:
+            sleep(1)
+            self.driver.get(href)
+            print(self.driver.current_url)
             if i % 20:
                 sleep(12.5*i)
                 print(f'RESTING FOR {(12.5*i)/60} MINS')
-            sleep(3)
             try:
                 self.like()
             except:
@@ -77,48 +74,35 @@ class InstagramBot:
             except:
                 print("Comment error")
             i += 1
-        q += 1
-        if q < len(OTHER_TAGS):
-            self.search(OTHER_TAGS[q])
 
 
     def like(self, try_again=True, path='//li[2]/div/div/div/div/div[2]'):
         try:
             sleep(2)
-            action = ActionChains(driver)
-            img = driver.find_element(By.XPATH, path)
-        # img.click()
-        # img.click()
+            action = ActionChains(self.driver)
+            img = self.wait.until(EC.presence_of_element_located((By.XPATH, path)))
             action.double_click(img).perform()
-            sleep(5)
-            print("[SUCCESS] Liked image")
+            print("[SUCCESS] Liked")
+            sleep(2)
         except:
             if try_again:
-                    self.like(try_again=False, path='xpath=//div[2]')
+                self.like(try_again=False, path='xpath=//div[2]')
             if not try_again:
-                print("Error liking")
+                print("[ERROR] Not liked")
         
 
 
     def comment(self):
         try:
-            sleep(4)
-        # try:
-                #textbox = driver.find_element(By.CSS_SELECTOR, '.\_aamx .\_abm1 > .\_ab6-')
-                #print(1)
-            #except:
-            textbox = driver.find_element(By.CSS_SELECTOR, '.\_aamx > .\_abl-')
-            #    print(2)
-            textbox.click()
-            sleep(4)
-            textarea = driver.find_element(By.XPATH, '//textarea')
-            textarea.send_keys("Nice! I like this.")
             sleep(2)
-            submit_button = driver.find_element(By.XPATH, '//form/button/div')
-            submit_button.click()
-            print("Comment done")
+            select_textbox = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.\_aamx > .\_abl-'))).click()
+            sleep(2)
+            type_text = self.wait.until(EC.presence_of_element_located((By.XPATH, '//textarea'))).send_keys(COMMENTS[randint(0, len(COMMENTS)-1)])
+            sleep(2)
+            submit_button = self.wait.until(EC.element_to_be_clickable((By.XPATH, '//form/button/div'))).click()
+            print("[SUCCESS] Commented")
         except:
-                print("Error Commenting")
+            print("[ERROR] Not commented")
 
 
 Bot1 = InstagramBot()
